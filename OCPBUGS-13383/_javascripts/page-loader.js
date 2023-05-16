@@ -1,13 +1,15 @@
+// the new final link to load
+newLink = "";
+newVersion = "";
+currentVersion = "";
+
+// the fileRequested
+fileRequested = "";
+
 function versionSelector(list) {
 
   // the version we want
   newVersion = list[list.selectedIndex].value;
-
-  // the new final link to load
-  newLink = "";
-
-  // the fileRequested
-  var fileRequested = "";
 
   // spilt the current path
   var pathArray = window.location.pathname.split( '/' );
@@ -28,7 +30,6 @@ function versionSelector(list) {
     fileRequested = "/welcome/index.html";
   }
 
-
   // alert(fileRequested);
 
   // in 3.3 and above, we changed to container-platform
@@ -44,7 +45,76 @@ function versionSelector(list) {
 
   // without doing async loads, there is no way to know if the path actually
   // exists - so we will just have to load
-  window.location = newLink;
+  // window.location = newLink;
+  // testing async validations
+  $.ajax({
+    type: 'HEAD',
+    url: newLink,
+    success: function() {
+      window.location = newLink;
+    },
+    error: function(jqXHR, exception) {
+      if(jqXHR.status == 404) {
+        list.value = currentVersion;
+        if(confirm("This page doesn't exist in version " + newVersion + ". Click OK to search the " + newVersion + " docs OR Cancel to stay on this page.")) {
+          window.location = "https://google.com/search?q=site:https://docs.openshift.com/container-platform/" + newVersion + " " + document.title;
+        } else {
+          // do nothing, user doesn't want to search
+        }
+      } else {
+        window.location = newLink; // assumption here is that we can follow through with a redirect
+      }
+    }
+  });
+
+}
+
+// checks what language was selected and then sends the user to the portal for their localized version
+function selectLang(langList) {
+
+  var lang = langList[langList.selectedIndex].value;
+  var winPath = window.location.pathname;
+
+  console.log("Lang: " + lang);
+  console.log("Win Path: " + winPath);
+
+  var currentVersion = document.getElementById("version-selector").value;
+  console.log("CurrentVersion: " + currentVersion);
+
+  // path for the file to reference on portal (the last bit removes .html)
+  var path = winPath.substring(winPath.lastIndexOf(currentVersion) +   (currentVersion.length + 1), winPath.length - 5);
+
+  var parts = path.split("/");
+
+  console.log(parts);
+
+  // map things to html-single. While plain HTML is preferred, it is harder to map and get all anchors right. html-single ensures there is no 404 and the user at least lands on the right book
+  console.log(parts[parts.length-1]);
+
+  var anchorid = parts[parts.length-1];
+  var book = parts[0];
+
+  // add changed book names here
+  if(book == "updating") book = "updating_clusters";
+  if(book == "virt") book = "openshift_virtualization";
+  if(book == "post_installation_configuration") book = "post-installation_configuration";
+
+  // var section = parts[1].replace(/\_/g, "-"); // replace underscore with dash
+  // var section = subGroup.toLowerCase().replace(" ", "-");
+  // console.log(section);
+  // var subsection = parts[2].replace(/\_/g, "-");
+  // console.log(subsection);
+
+  // path = book + "/" + section + "#" + subsection;
+  path = book + "#" + anchorid;
+
+  console.log("Path: " + path);
+
+  var portalBaseURL = "https://access.redhat.com/documentation";
+  var finalURL = portalBaseURL + "/" + lang + "/openshift_container_platform/" + currentVersion + "/html-single/" + path;
+
+  console.log("Final URL: " + finalURL);
+  window.location.href = finalURL;
 
 }
 
@@ -58,6 +128,9 @@ function selectVersion(currentVersion) {
   if(el) {
     el.value = currentVersion;
   }
+
+  // check the docs referrer to add warning box based on whether we are coming from rosa docs or elsewhere
+  addReferrer();
 
   // the rest creates an suggest an edit element for h1 and h2 elements
 
@@ -144,4 +217,34 @@ function selectVersion(currentVersion) {
       });
     }
   }
+}
+
+function addReferrer() {
+
+  // grab target element reference
+
+  // we want to add a notice to the top of the OCP docs page if the reader is coming from ROSA docs
+
+  // check the referrer
+  // alert(document.referrer);
+
+  // var ref = "http://127.0.0.1/addreferrer";
+  // var ref = "http://127.0.0.1/addreferrer/authentication/understanding-authentication.html";
+
+  var ref = "https://docs.openshift.com/rosa";
+
+  if(document.referrer && document.referrer.startsWith(ref) && !document.location.href.startsWith(ref)) {
+
+    // get the first section/header
+    var elements = document.getElementsByClassName('sect1');
+    var requiredElement = elements[0];
+
+    // the warning text
+    var text = '<div class="admonitionblock important"><table><tbody><tr><td class="icon"><i class="fa icon-important" title="Important"></i></td><td class="content"><div class="paragraph"><p>This is the <b>OpenShift Container Platform</b> documentation. There may be some sections that don\'t apply to ROSA docs.</p><p>Click <a href="' + document.referrer + '">here</a> to go back to the page you came from or browse the full <a href="https://docs.openshift.com/rosa/welcome/index.html">ROSA documentation</a>.</p></div></td></tr></tbody></table></div>';
+
+    // insert the element before target element
+    requiredElement.insertAdjacentHTML("beforebegin", text);
+  }
+
+
 }
